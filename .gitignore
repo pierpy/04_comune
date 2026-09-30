@@ -1,0 +1,17 @@
+# Repository a parte: github.com/pierpy/gestione_villa_comunale
+gestione_villa_comunale/
+
+# File troppo pesanti per GitHub (restano solo sui computer)
+Elezioni_2026/OPUSCOLO.pdf
+Diodoro/2 - *.png
+
+# File di lavoro temporanei
+Diodoro/_render/
+~$*
+*.tmp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Repository a parte (ha un suo .git)
+Elezioni_2026/SitoElezioni/
