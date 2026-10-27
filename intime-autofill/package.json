@@ -1,0 +1,1 @@
+{ "name": "registro-lezioni-autofill", "private": true, "type": "module", "scripts": { "test": "node --test test/*.test.mjs" } }

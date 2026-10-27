@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Registro Lezioni Autofill</title>
+  <link rel="stylesheet" href="../ui.css">
+</head>
+<body class="popup">
+  <header>
+    <h1>Registro lezioni</h1>
+    <a href="#" id="openOptions">Impostazioni</a>
+  </header>
+
+  <section class="period">
+    <label>Dal <input type="date" id="from"></label>
+    <label>Al <input type="date" id="to"></label>
+    <button id="load" class="primary">Carica lezioni</button>
+  </section>
+
+  <p id="status" class="status"></p>
+
+  <table id="rows" hidden>
+    <thead>
+      <tr><th></th><th>Data</th><th>Orario</th><th>Insegnamento / tipo</th><th>Argomento</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <footer>
+    <button id="fill" class="primary" disabled>Compila la prossima in InTime</button>
+    <button id="analyze" title="Copia negli appunti la struttura del modulo aperto, per tarare i campi">Analizza modulo</button>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Impostazioni – Registro Lezioni Autofill</title>
+  <link rel="stylesheet" href="../ui.css">
+</head>
+<body>
+  <h1>Impostazioni</h1>
+
+  <h2>1. Google Calendar</h2>
+  <p class="hint">Scegli i calendari in cui hai importato le lezioni. L'accesso è in sola lettura.</p>
+  <button id="loadCalendars">Collega Google e mostra i calendari</button>
+  <ul id="calendars" class="list"></ul>
+
+  <h2>2. University Planner</h2>
+  <p class="hint">Apri in questo browser la pagina del tuo calendario pubblico (ad es.
+    <code>https://unich.prod.up.cineca.it/calendarioPubblico/matricola=…</code>):
+    l'estensione la riconosce da sola e la aggiunge qui sotto.</p>
+  <ul id="upSources" class="list"></ul>
+
+  <h2>3. Regole di incrocio</h2>
+  <div class="grid">
+    <label for="timeSource">Orario da usare</label>
+    <select id="timeSource"><option value="up">University Planner</option><option value="gcal">Google Calendar</option></select><span></span>
+    <label for="topicFrom">Argomento da</label>
+    <select id="topicFrom"><option value="auto">Descrizione, altrimenti titolo Google</option><option value="description">Descrizione evento Google</option><option value="title">Titolo evento Google</option></select><span></span>
+    <label for="gcalKeyword">Parola chiave eventi solo-Google</label>
+    <input id="gcalKeyword" placeholder="es. Lezione"><span class="hint">vuoto = tutti</span>
+    <label for="typeMap">Tipi UP → InTime</label>
+    <textarea id="typeMap" rows="3" placeholder="Lezione = Lezione frontale"></textarea><span class="hint">una riga per tipo</span>
+  </div>
+
+  <h2>4. Campi del modulo InTime</h2>
+  <p class="hint">Espressioni regolari sulle etichette dei campi, oppure un selettore CSS. Usa "Analizza modulo" nel popup per vedere le etichette reali.</p>
+  <div class="grid" id="fields"></div>
+  <div class="grid">
+    <label for="addButton">Pulsante "Aggiungi"</label><input id="addButton"><span></span>
+    <label for="saveButton">Pulsante "Salva"</label><input id="saveButton"><span class="hint">mai premuto dall'estensione</span>
+  </div>
+
+  <footer><button id="save" class="primary">Salva impostazioni</button><span id="status" class="status"></span></footer>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
