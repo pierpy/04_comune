@@ -4,6 +4,7 @@
 import { buildRows, normalizeGcal, normalizeUp } from './lib/matcher.js';
 import { listCalendars, listEvents } from './lib/gcal.js';
 import { fetchUpImpegni } from './lib/up.js';
+import { fetchIcsEvents } from './lib/ics.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 
 async function buildQueue({ from, to }) {
@@ -24,6 +25,13 @@ async function buildQueue({ from, to }) {
   if (settings.upSources.some((s) => s.kind === 'link')) await saveSettings(settings);
 
   const gcs = [];
+  for (const ics of settings.icsUrls) {
+    try {
+      (await fetchIcsEvents(ics.url, start, end)).forEach((it) => gcs.push(normalizeGcal(it, ics.label)));
+    } catch (e) {
+      errors.push(`${ics.label}: ${e.message}`);
+    }
+  }
   for (const calId of settings.calendars) {
     try {
       (await listEvents(calId, start, end)).forEach((it) => gcs.push(normalizeGcal(it, calId)));

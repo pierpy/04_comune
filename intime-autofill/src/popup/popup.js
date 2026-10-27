@@ -18,7 +18,7 @@ async function init() {
   queue = q;
   render();
   const s = await loadSettings();
-  if (!s.upSources.length && !s.calendars.length) status('Configura prima le sorgenti in Impostazioni.', 'warn');
+  if (!s.upSources.length && !s.calendars.length && !s.icsUrls.length) status('Configura prima le sorgenti in Impostazioni.', 'warn');
 }
 
 function render() {

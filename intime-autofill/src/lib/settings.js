@@ -14,7 +14,8 @@ export const DEFAULT_FIELDS = {
 };
 
 export const DEFAULT_SETTINGS = {
-  calendars: [],          // id dei calendari Google da leggere
+  icsUrls: [],            // { label, url } indirizzi segreti iCal (nessuna configurazione Google necessaria)
+  calendars: [],          // id dei calendari Google letti via API (richiede un client OAuth)
   upSources: [],          // { id, kind: 'captured'|'link', label, url, body, host, linkCalendarioId, clienteId }
   match: { ...DEFAULT_OPTIONS },
   fields: DEFAULT_FIELDS,

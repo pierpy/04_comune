@@ -9,7 +9,9 @@ usa un riconoscimento generico dei campi e va tarato sulla pagina reale (vedi "T
 
 ## Come funziona
 
-1. **Google Calendar**: API v3 in sola lettura (`calendar.readonly`), uno o più calendari, ricorrenze espanse.
+1. **Google Calendar**: modo consigliato, l'**indirizzo segreto in formato iCal** di ogni calendario (nessuna
+   configurazione su Google Cloud); le ricorrenze sono espanse da `src/lib/ics.js` (RRULE, EXDATE, RECURRENCE-ID).
+   In alternativa, API v3 in sola lettura (`calendar.readonly`) con un client OAuth.
 2. **University Planner**: aprendo una volta la propria pagina `…/calendarioPubblico/…` (anche nella forma
    `matricola=XXXXXX`), lo script `up-capture.js` registra la chiamata `getImpegniCalendarioPubblico` fatta dalla
    pagina; l'estensione la ripete poi per qualsiasi periodo, settimana per settimana.
@@ -23,10 +25,11 @@ Tutti i dati restano nel browser (`chrome.storage.local`): non c'è un server e 
 
 ## Installazione per sviluppo
 
-1. Crea in Google Cloud Console un progetto, abilita *Google Calendar API* e crea un ID client OAuth di tipo
-   **Estensione Chrome** con l'ID dell'estensione; inseriscilo in `manifest.json` → `oauth2.client_id`.
-2. `chrome://extensions` → Modalità sviluppatore → *Carica estensione non pacchettizzata* → cartella `intime-autofill`.
-3. Impostazioni → collega Google e scegli i calendari; apri la pagina UP del tuo calendario.
+1. `chrome://extensions` → Modalità sviluppatore → *Carica estensione non pacchettizzata* → cartella `intime-autofill`.
+2. Google Calendar → Impostazioni → (calendario) → *Integra calendario* → copia l'*Indirizzo segreto in formato iCal*
+   e incollalo in Impostazioni dell'estensione. Apri la pagina UP del tuo calendario.
+3. (Facoltativo) Accesso via API: crea un ID client OAuth di tipo **Estensione Chrome** in Google Cloud Console e
+   inseriscilo in `manifest.json` → `oauth2.client_id`.
 4. Test dell'incrocio: `npm test` (Node ≥ 20).
 
 ## Taratura su InTime
@@ -37,6 +40,8 @@ o i selettori CSS in Impostazioni → "Campi del modulo InTime".
 
 ## Note per la distribuzione
 
-- Lo scope `calendar.readonly` è "sensibile": per un'app pubblica serve la verifica OAuth di Google.
+- Con gli indirizzi iCal non serve la verifica OAuth di Google. Lo scope `calendar.readonly` (modo API) è
+  "sensibile": per un'app pubblica servirebbe la verifica. Alcuni account Google Workspace di ateneo possono
+  avere l'indirizzo segreto disattivato dall'amministratore; Google aggiorna il feed iCal con qualche ritardo.
 - Le API di University Planner non sono documentate da Cineca e possono cambiare.
 - Il nome del prodotto non deve usare i marchi Cineca/InTime; verificare le condizioni d'uso degli atenei.

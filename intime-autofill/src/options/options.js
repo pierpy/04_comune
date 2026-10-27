@@ -52,6 +52,7 @@ function renderFields() {
 async function init() {
   settings = await loadSettings();
   if (settings.calendars.length) renderCalendars(settings.calendars.map((id) => ({ id, name: id })));
+  $('icsUrls').value = settings.icsUrls.map((c) => (c.label && c.label !== c.url ? `${c.label} | ${c.url}` : c.url)).join('\n');
   renderUpSources();
   renderFields();
   $('timeSource').value = settings.match.timeSource;
@@ -71,6 +72,10 @@ $('loadCalendars').addEventListener('click', () => {
 
 $('save').addEventListener('click', async () => {
   settings.calendars = [...$('calendars').querySelectorAll('input:checked')].map((cb) => cb.value);
+  settings.icsUrls = $('icsUrls').value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [label, url] = l.includes('|') ? l.split('|').map((s) => s.trim()) : ['', l];
+    return { label: label || `Calendario iCal ${url.slice(-30)}`, url };
+  });
   settings.match.timeSource = $('timeSource').value;
   settings.match.topicFrom = $('topicFrom').value;
   settings.match.gcalKeyword = $('gcalKeyword').value.trim();

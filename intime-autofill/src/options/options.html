@@ -9,9 +9,15 @@
   <h1>Impostazioni</h1>
 
   <h2>1. Google Calendar</h2>
-  <p class="hint">Scegli i calendari in cui hai importato le lezioni. L'accesso è in sola lettura.</p>
-  <button id="loadCalendars">Collega Google e mostra i calendari</button>
-  <ul id="calendars" class="list"></ul>
+  <p class="hint">In Google Calendar apri <b>Impostazioni → (nome del calendario) → Integra calendario</b> e copia
+    l'<b>Indirizzo segreto in formato iCal</b>. Incollane uno per riga; puoi dare un nome con <code>nome | indirizzo</code>.
+    Non condividere questi indirizzi: chi li ha può leggere il calendario.</p>
+  <textarea id="icsUrls" rows="3" placeholder="Lezioni | https://calendar.google.com/calendar/ical/…/private-…/basic.ics"></textarea>
+  <details>
+    <summary class="hint">In alternativa: accesso tramite account Google (richiede un client OAuth in manifest.json)</summary>
+    <button id="loadCalendars">Collega Google e mostra i calendari</button>
+    <ul id="calendars" class="list"></ul>
+  </details>
 
   <h2>2. University Planner</h2>
   <p class="hint">Apri in questo browser la pagina del tuo calendario pubblico (ad es.

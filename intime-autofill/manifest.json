@@ -9,6 +9,7 @@
   "permissions": ["storage", "identity", "scripting", "activeTab"],
   "host_permissions": [
     "https://*.up.cineca.it/*",
+    "https://calendar.google.com/*",
     "https://www.googleapis.com/*"
   ],
   "oauth2": {
