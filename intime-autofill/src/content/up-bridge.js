@@ -3,13 +3,19 @@
   let notified = false;
 
   window.addEventListener('message', (ev) => {
-    if (ev.source !== window || ev.data?.__intimeAutofill !== 'up-request') return;
+    if (ev.source !== window || ev.data?.__intimeAutofill !== 'up-api') return;
+    const { __intimeAutofill, ...call } = ev.data;
+    // Ogni chiamata API vista viene annotata per la diagnostica (pagina Impostazioni).
+    chrome.runtime.sendMessage({ type: 'up:seen', call: { ...call, pageUrl: location.href, at: new Date().toISOString() } });
+    if (!call.isImpegni) return;
     chrome.runtime.sendMessage(
-      { type: 'up:captured', url: ev.data.url, body: ev.data.body, pageUrl: location.href, title: document.title },
+      { type: 'up:captured', ...call, pageUrl: location.href, title: document.title },
       (res) => {
-        if (res?.ok && res.data?.isNew && !notified) {
+        if (res?.ok && !notified) {
           notified = true;
-          toast('Calendario University Planner collegato all\'estensione InTime Autofill.');
+          toast(res.data?.isNew
+            ? 'Calendario University Planner collegato all\'estensione Registro Lezioni Autofill.'
+            : 'Calendario University Planner aggiornato nell\'estensione.');
         }
       },
     );

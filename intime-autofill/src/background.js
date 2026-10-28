@@ -3,7 +3,7 @@
 
 import { buildRows, normalizeGcal, normalizeUp } from './lib/matcher.js';
 import { listCalendars, listEvents } from './lib/gcal.js';
-import { fetchUpImpegni } from './lib/up.js';
+import { fetchUpImpegni, requestSignature } from './lib/up.js';
 import { fetchIcsEvents } from './lib/ics.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 
@@ -47,16 +47,33 @@ async function buildQueue({ from, to }) {
   return { rows, errors, counts: { up: ups.length, gcal: gcs.filter(Boolean).length } };
 }
 
-async function addCapturedSource({ url, body, pageUrl, title }) {
+// Le chiamate arrivano a raffica (una per settimana visualizzata): si serializzano
+// per non leggere e riscrivere le impostazioni in parallelo.
+let captureChain = Promise.resolve();
+
+function addCapturedSource(call) {
+  const run = captureChain.then(() => storeCapturedSource(call));
+  captureChain = run.catch(() => {});
+  return run;
+}
+
+async function storeCapturedSource({ url, method, body, responsePath, pageUrl, title }) {
   const settings = await loadSettings();
-  // Una stessa pagina catturata più volte (cambio settimana) aggiorna la sorgente esistente.
-  const { dataInizio, dataFine, ...template } = body || {};
-  const label = title || pageUrl;
-  const existing = settings.upSources.find((s) => s.kind === 'captured' && s.pageUrl === pageUrl);
-  if (existing) Object.assign(existing, { url, body: template, label });
-  else settings.upSources.push({ id: crypto.randomUUID(), kind: 'captured', url, body: template, pageUrl, label });
+  // La stessa chiamata con date diverse (cambio settimana) aggiorna la sorgente esistente.
+  const signature = requestSignature({ url, method, body });
+  const label = title && !/^university planner$/i.test(title.trim()) ? `${title} (${pageUrl})` : pageUrl;
+  const existing = settings.upSources.find((s) => s.kind === 'captured' && (s.signature === signature || s.pageUrl === pageUrl));
+  const data = { url, method, body, responsePath, pageUrl, label, signature };
+  if (existing) Object.assign(existing, data);
+  else settings.upSources.push({ id: crypto.randomUUID(), kind: 'captured', ...data });
   await saveSettings(settings);
   return { isNew: !existing };
+}
+
+async function rememberSeen(call) {
+  const { upSeen = [] } = await chrome.storage.local.get('upSeen');
+  upSeen.unshift(call);
+  await chrome.storage.local.set({ upSeen: upSeen.slice(0, 30) });
 }
 
 async function markRow(key, patch) {
@@ -71,6 +88,7 @@ const handlers = {
   'queue:build': (msg) => buildQueue(msg),
   'queue:mark': (msg) => markRow(msg.key, msg.patch),
   'up:captured': (msg) => addCapturedSource(msg),
+  'up:seen': (msg) => rememberSeen(msg.call),
 };
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

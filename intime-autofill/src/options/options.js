@@ -34,6 +34,18 @@ function renderUpSources() {
   });
 }
 
+async function renderSeen() {
+  const { upSeen = [] } = await chrome.storage.local.get('upSeen');
+  const ul = $('upSeen');
+  ul.replaceChildren();
+  if (!upSeen.length) ul.innerHTML = '<li class="hint">Nessuna chiamata vista finora.</li>';
+  for (const c of upSeen) {
+    const li = document.createElement('li');
+    li.textContent = `${c.isImpegni ? '✔ impegni' : '·'} ${c.method} ${new URL(c.url).pathname}${c.count !== null ? ` (${c.count} elementi)` : ''}`;
+    ul.append(li);
+  }
+}
+
 function renderFields() {
   const box = $('fields');
   box.replaceChildren();
@@ -54,6 +66,7 @@ async function init() {
   if (settings.calendars.length) renderCalendars(settings.calendars.map((id) => ({ id, name: id })));
   $('icsUrls').value = settings.icsUrls.map((c) => (c.label && c.label !== c.url ? `${c.label} | ${c.url}` : c.url)).join('\n');
   renderUpSources();
+  renderSeen();
   renderFields();
   $('timeSource').value = settings.match.timeSource;
   $('topicFrom').value = settings.match.topicFrom;
@@ -92,8 +105,18 @@ $('save').addEventListener('click', async () => {
   $('status').className = 'status ok';
 });
 
+$('copyDiag').addEventListener('click', async () => {
+  const { upSeen = [] } = await chrome.storage.local.get('upSeen');
+  // Nella diagnostica non serve il corpo completo: bastano i nomi dei parametri.
+  const safe = upSeen.map(({ body, ...c }) => ({ ...c, bodyKeys: body ? Object.keys(body) : [] }));
+  await navigator.clipboard.writeText(JSON.stringify({ sources: settings.upSources.map((s) => s.label), calls: safe }, null, 2));
+  $('status').textContent = 'Diagnostica copiata negli appunti.';
+  $('status').className = 'status ok';
+});
+
 // Un calendario UP catturato mentre questa pagina è aperta compare subito.
 chrome.storage.onChanged.addListener(async (changes) => {
+  if (changes.upSeen) renderSeen();
   if (!changes.settings) return;
   const fresh = await loadSettings();
   settings.upSources = fresh.upSources;
