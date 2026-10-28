@@ -1,13 +1,21 @@
 // Iniettato su richiesta (pulsante del popup) nella scheda di U-WEB InTime.
 // Riempie il modulo della lezione con i dati di una riga della coda.
 // NON preme mai "Salva": evidenzia il pulsante e aspetta che sia l'utente a confermare.
-// Espone window.__intimeAutofill.{fill, analyze}, chiamate dal popup con chrome.scripting.
+// Espone window.__intimeAutofill.{probe, openForm, fill, analyze}, chiamate dal popup con chrome.scripting
+// in tutti i frame della pagina (il modulo può stare in un iframe o in uno shadow DOM).
 (() => {
   if (window.__intimeAutofill) return;
 
   const CONTROL = 'input:not([type=hidden]):not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), select, textarea, [role=combobox], mat-select, [contenteditable=true]';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const clean = (t) => (t || '').replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // querySelectorAll che entra anche negli shadow DOM aperti (web component).
+  function deepAll(selector, root = document, out = []) {
+    root.querySelectorAll(selector).forEach((el) => out.push(el));
+    root.querySelectorAll('*').forEach((el) => { if (el.shadowRoot) deepAll(selector, el.shadowRoot, out); });
+    return out;
+  }
 
   function visible(el) {
     const r = el.getBoundingClientRect();
@@ -20,7 +28,8 @@
     el.labels?.forEach((l) => parts.push(l.textContent));
     parts.push(el.getAttribute('aria-label'), el.getAttribute('placeholder'), el.getAttribute('title'));
     const ids = el.getAttribute('aria-labelledby');
-    if (ids) ids.split(/\s+/).forEach((id) => parts.push(document.getElementById(id)?.textContent));
+    const root = el.getRootNode();
+    if (ids) ids.split(/\s+/).forEach((id) => parts.push((root.getElementById ? root : document).getElementById(id)?.textContent));
     const box = el.closest('mat-form-field, .mat-mdc-form-field, .form-group, .field, .p-field, .control-group, tr, .row');
     const lab = box?.querySelector('label, mat-label, .mat-mdc-floating-label, th, .control-label');
     if (lab) parts.push(lab.textContent);
@@ -28,12 +37,12 @@
   }
 
   function controls() {
-    return [...document.querySelectorAll(CONTROL)].filter(visible);
+    return deepAll(CONTROL).filter(visible);
   }
 
   function findField(spec) {
     if (spec.selector) {
-      const el = document.querySelector(spec.selector);
+      const el = deepAll(spec.selector)[0];
       if (el) return el;
     }
     if (!spec.label) return null;
@@ -73,7 +82,7 @@
     if (el.matches('[role=combobox], mat-select') && !(el instanceof HTMLInputElement)) {
       el.click();
       await sleep(300);
-      const opts = [...document.querySelectorAll('[role=option], mat-option')].filter(visible);
+      const opts = deepAll('[role=option], mat-option').filter(visible);
       const opt = bestOption(opts.map((o) => ({ text: o.textContent, el: o })), value);
       if (!opt) { document.body.click(); return `opzione "${value}" non trovata`; }
       opt.el.click();
@@ -104,7 +113,7 @@
 
   function findButton(pattern) {
     const re = new RegExp(pattern, 'i');
-    return [...document.querySelectorAll('button, [role=button], input[type=submit], input[type=button], a.btn')]
+    return deepAll('button, [role=button], input[type=submit], input[type=button], a.btn')
       .filter(visible)
       .find((b) => re.test(clean(b.textContent || b.value || b.getAttribute('aria-label'))));
   }
@@ -126,13 +135,22 @@
 
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  async function fill(row, settings) {
-    // Se il modulo non è aperto, prova ad aprirlo con il pulsante "Aggiungi" (non è un salvataggio).
-    if (!findField(settings.fields.date) && settings.addButton) {
-      const add = findButton(settings.addButton);
-      if (add) { add.click(); await sleep(800); }
-    }
+  // Quanti campi del modulo sono riconoscibili in questo frame: il popup sceglie il frame migliore.
+  function probe(settings) {
+    const matched = Object.values(settings.fields).filter((spec) => findField(spec)).length;
+    return { matched, controls: controls().length, hasAdd: Boolean(settings.addButton && findButton(settings.addButton)) };
+  }
 
+  // Apre il modulo con il pulsante "Aggiungi" (non è un salvataggio).
+  async function openForm(settings) {
+    const add = findButton(settings.addButton);
+    if (!add) return false;
+    add.click();
+    await sleep(1000);
+    return true;
+  }
+
+  async function fill(row, settings) {
     const report = {};
     for (const [kind, spec] of Object.entries(settings.fields)) {
       const el = findField(spec);
@@ -159,6 +177,11 @@
     }
 
     const problems = Object.entries(report).filter(([, v]) => v !== 'ok' && v !== 'vuoto');
+    if (!Object.values(report).some((v) => v === 'ok')) {
+      banner('Nessun campo del modulo riconosciuto. Apri il modulo di inserimento della lezione e riprova; '
+        + 'se è già aperto usa "Analizza modulo" nel popup e invia il risultato.', '#a35a00');
+      return { report, saveFound: false, nothingFound: true };
+    }
     banner(
       `<b>${esc(row.date)} ${esc(row.start)}–${esc(row.end)}</b> · ${esc(row.course)}<br>`
       + (problems.length ? `Da controllare: ${problems.map(([k, v]) => `${esc(k)} (${esc(v)})`).join(', ')}<br>` : '')
@@ -172,6 +195,7 @@
   function analyze() {
     return {
       url: location.href,
+      inShadow: controls().filter((el) => el.getRootNode() !== document).length,
       fields: controls().map((el) => ({
         label: labelOf(el),
         tag: el.tagName.toLowerCase(),
@@ -180,10 +204,10 @@
         name: el.getAttribute('name') || el.getAttribute('formcontrolname') || '',
         options: el instanceof HTMLSelectElement ? [...el.options].map((o) => clean(o.textContent)).slice(0, 40) : undefined,
       })),
-      buttons: [...document.querySelectorAll('button, [role=button], input[type=submit]')].filter(visible)
+      buttons: deepAll('button, [role=button], input[type=submit]').filter(visible)
         .map((b) => clean(b.textContent || b.value || b.getAttribute('aria-label'))).filter(Boolean),
     };
   }
 
-  window.__intimeAutofill = { fill, analyze };
+  window.__intimeAutofill = { probe, openForm, fill, analyze };
 })();

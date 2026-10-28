@@ -85,7 +85,18 @@ async function activeTab() {
 }
 
 async function inject(tab) {
-  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/intime-fill.js'] });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ['src/content/intime-fill.js'] });
+}
+
+// Esegue func in tutti i frame della scheda (o in quelli indicati) e restituisce [{ frameId, result }].
+function runInFrames(tab, func, args = [], frameIds) {
+  const target = frameIds ? { tabId: tab.id, frameIds } : { tabId: tab.id, allFrames: true };
+  return chrome.scripting.executeScript({ target, func, args });
+}
+
+async function bestFrame(tab, fillSettings) {
+  const probes = await runInFrames(tab, (s) => window.__intimeAutofill?.probe(s), [fillSettings]);
+  return probes.filter((p) => p.result).sort((a, b) => b.result.matched - a.result.matched)[0];
 }
 
 $('fill').addEventListener('click', async () => {
@@ -95,11 +106,21 @@ $('fill').addEventListener('click', async () => {
   try {
     await inject(tab);
     const settings = await loadSettings();
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (r, s) => window.__intimeAutofill.fill(r, s),
-      args: [row, { fields: settings.fields, addButton: settings.addButton, saveButton: settings.saveButton }],
-    });
+    const fillSettings = { fields: settings.fields, addButton: settings.addButton, saveButton: settings.saveButton };
+    let best = await bestFrame(tab, fillSettings);
+    if (!best?.result.matched) {
+      // Modulo non aperto: si prova il pulsante "Aggiungi" nel frame che lo contiene.
+      const probes = await runInFrames(tab, (s) => window.__intimeAutofill?.probe(s), [fillSettings]);
+      const withAdd = probes.find((p) => p.result?.hasAdd);
+      if (withAdd) {
+        await runInFrames(tab, (s) => window.__intimeAutofill.openForm(s), [fillSettings], [withAdd.frameId]);
+        best = await bestFrame(tab, fillSettings);
+      }
+    }
+    const [{ result }] = await runInFrames(tab, (r, s) => window.__intimeAutofill.fill(r, s), [row, fillSettings], [best?.frameId ?? 0]);
+    if (result.nothingFound) {
+      return status('Nessun campo riconosciuto: apri il modulo di inserimento della lezione in InTime e riprova, oppure usa "Analizza modulo".', 'warn');
+    }
     const missing = Object.entries(result.report).filter(([, v]) => v !== 'ok' && v !== 'vuoto');
     status(
       missing.length
@@ -117,9 +138,10 @@ $('analyze').addEventListener('click', async () => {
   const tab = await activeTab();
   try {
     await inject(tab);
-    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__intimeAutofill.analyze() });
-    await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    status(`Struttura del modulo copiata negli appunti (${result.fields.length} campi).`, 'ok');
+    const frames = (await runInFrames(tab, () => window.__intimeAutofill?.analyze())).map((f) => f.result).filter(Boolean);
+    await navigator.clipboard.writeText(JSON.stringify(frames, null, 2));
+    const n = frames.reduce((acc, f) => acc + f.fields.length, 0);
+    status(`Struttura copiata negli appunti: ${n} campi in ${frames.length} frame.`, n ? 'ok' : 'warn');
   } catch (e) {
     status(`Analisi non riuscita: ${e.message}`, 'err');
   }
